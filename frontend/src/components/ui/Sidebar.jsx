@@ -10,9 +10,11 @@ import {
   LogOut,
   MessageSquare,
   GitBranch,
+  Shield,
 } from "lucide-react";
 import clsx from "clsx";
 import { useAuth } from "../../lib/auth-context";
+
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -25,6 +27,17 @@ const nav = [
   { href: "/chatbot", label: "AI Chatbot", icon: Bot },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
+
+// Admin-only navigation items
+const adminNav = [
+  { href: "/users", label: "User Management", icon: Shield },
+];
+
+const ROLE_BADGE = {
+  admin:     { label: "Admin",     color: "bg-purple-100 text-purple-700" },
+  recruiter: { label: "Recruiter", color: "bg-blue-100 text-blue-700" },
+  viewer:    { label: "Viewer",    color: "bg-gray-100 text-gray-600" },
+};
 
 export default function Sidebar() {
   const location = useLocation();
@@ -71,6 +84,33 @@ export default function Sidebar() {
             </Link>
           );
         })}
+
+        {/* Admin-only section */}
+        {user?.role === "admin" && (
+          <>
+            <div className="px-3 pt-3 pb-1">
+              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Admin</div>
+            </div>
+            {adminNav.map(({ href, label, icon: Icon }) => {
+              const active = pathname === href || pathname.startsWith(href + "/");
+              return (
+                <Link
+                  key={href}
+                  to={href}
+                  className={clsx(
+                    "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
+                    active
+                      ? "bg-purple-50 text-purple-700 font-medium"
+                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                  )}
+                >
+                  <Icon size={16} className={active ? "text-purple-600" : ""} />
+                  {label}
+                </Link>
+              );
+            })}
+          </>
+        )}
       </nav>
       <div className="border-t p-3">
         {user && (
@@ -80,7 +120,14 @@ export default function Sidebar() {
             </div>
             <div className="min-w-0">
               <div className="text-xs font-semibold truncate">{user.name || user.email}</div>
-              <div className="text-[10px] text-gray-400 truncate">{user.email}</div>
+              <div className="flex items-center gap-1 mt-0.5">
+                <span className={clsx(
+                  "text-[10px] px-1.5 py-0.5 rounded font-medium",
+                  ROLE_BADGE[user.role]?.color || "bg-gray-100 text-gray-600"
+                )}>
+                  {ROLE_BADGE[user.role]?.label || user.role}
+                </span>
+              </div>
             </div>
           </div>
         )}

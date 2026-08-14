@@ -10,6 +10,8 @@ from app.api.routes import (
     auth, campaigns, tracking, monitoring, settings as settings_routes,
     users,
 )
+# Explicit model imports so Base.metadata.create_all picks up all tables
+from app.models import audit_log as _audit_log_model  # noqa: F401
 
 
 @asynccontextmanager

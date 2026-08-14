@@ -131,25 +131,3 @@ async def get_profile(current_user: User = Depends(get_current_user)):
         created_at=current_user.created_at.isoformat(),
     )
 
-
-@router.get("/auth/users")
-async def list_users(
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_admin),
-):
-    """List all users (admin only)."""
-    result = await db.execute(select(User).order_by(User.created_at.desc()))
-    users = result.scalars().all()
-    return {
-        "data": [
-            UserResponse(
-                id=u.id,
-                name=u.name,
-                email=u.email,
-                role=u.role,
-                is_active=u.is_active,
-                created_at=u.created_at.isoformat(),
-            )
-            for u in users
-        ]
-    }
