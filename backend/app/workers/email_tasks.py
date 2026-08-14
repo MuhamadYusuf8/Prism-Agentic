@@ -171,3 +171,63 @@ def dispatch_follow_ups(self, campaign_id: str):
         return result
     except Exception as exc:
         raise self.retry(exc=exc)
+
+
+# ── Periodic Follow-up Dispatch (triggered by Celery Beat) ────────────────────
+
+
+@celery_app.task(
+    name="app.workers.email_tasks.run_periodic_follow_ups",
+    bind=True,
+    max_retries=2,
+    default_retry_delay=300,
+)
+def run_periodic_follow_ups(self):
+    """
+    Periodic task (triggered by Celery Beat every 6 hours):
+    Find all active campaigns with follow-up enabled and dispatch
+    follow-up emails for leads who haven't replied yet.
+    """
+    async def _run():
+        from app.core.database import AsyncSessionLocal
+        from app.models.campaign import Campaign
+        from app.services.email_service import send_follow_ups
+        from sqlalchemy import select
+
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(Campaign).where(Campaign.status == "active")
+            )
+            campaigns = result.scalars().all()
+
+            results = []
+            for campaign in campaigns:
+                follow_up_cfg = campaign.follow_up or {}
+                if not follow_up_cfg.get("enabled"):
+                    continue
+                try:
+                    r = await send_follow_ups(campaign.id, db)
+                    results.append({
+                        "campaign_id": str(campaign.id),
+                        "campaign_name": campaign.name,
+                        **r,
+                    })
+                except Exception as e:
+                    results.append({
+                        "campaign_id": str(campaign.id),
+                        "error": str(e),
+                    })
+
+            return {
+                "processed_campaigns": len(results),
+                "results": results,
+            }
+
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(_run())
+        loop.close()
+        return result
+    except Exception as exc:
+        raise self.retry(exc=exc)

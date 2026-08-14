@@ -89,6 +89,8 @@ export default function LeadDetailPage() {
   const [lead, setLead] = useState(null);
   const [loading, setLoading] = useState(true);
   const [interactions, setInteractions] = useState([]);
+  const [conversation, setConversation] = useState(null);
+  const [convLoading, setConvLoading] = useState(false);
   const [interactionType, setInteractionType] = useState("connection_request");
   const [interactionNotes, setInteractionNotes] = useState("");
   const [logging, setLogging] = useState(false);
@@ -118,6 +120,22 @@ export default function LeadDetailPage() {
     setLoading(true);
     loadLead().finally(() => setLoading(false));
     loadInteractions();
+  }, [id]);
+
+  const loadConversation = async (leadId) => {
+    setConvLoading(true);
+    try {
+      const r = await axios.get(`/api/email/monitoring/conversations/${leadId}`);
+      setConversation(r.data);
+    } catch {
+      setConversation(null);
+    } finally {
+      setConvLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (id) loadConversation(id);
   }, [id]);
 
   const handleProfile = async () => {
@@ -569,6 +587,97 @@ export default function LeadDetailPage() {
               No LinkedIn interactions logged yet. Click "Log Interaction" to
               start tracking outreach for this profile.
             </p>
+          </div>
+        )}
+      </div>
+
+      {/* Email Conversation Thread */}
+      <div className="bg-white rounded-xl border p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Mail size={16} className="text-gray-400" />
+            <h2 className="font-semibold text-sm">Email Conversation Thread</h2>
+            {conversation && (
+              <span className={`text-xs px-2 py-0.5 rounded-full border font-medium
+                ${{ replied: "bg-emerald-100 text-emerald-700 border-emerald-200",
+                    clicked: "bg-purple-100 text-purple-700 border-purple-200",
+                    opened: "bg-blue-100 text-blue-700 border-blue-200",
+                    sent: "bg-green-100 text-green-700 border-green-200",
+                    bounced: "bg-red-100 text-red-700 border-red-200",
+                    no_activity: "bg-gray-100 text-gray-500 border-gray-200",
+                  }[conversation.status] || "bg-gray-100 text-gray-500 border-gray-200"}`}>
+                {conversation.status?.replace("_", " ")}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => loadConversation(id)}
+            disabled={convLoading}
+            className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
+          >
+            <RefreshCw size={12} className={convLoading ? "animate-spin" : ""} />
+            Refresh
+          </button>
+        </div>
+
+        {convLoading ? (
+          <div className="flex items-center justify-center py-8 text-gray-400">
+            <RefreshCw size={16} className="animate-spin mr-2" /> Loading thread...
+          </div>
+        ) : !conversation || conversation.messages_count === 0 ? (
+          <div className="text-center py-8 text-gray-400">
+            <Mail size={28} className="mx-auto text-gray-300 mb-2" />
+            <p className="text-sm">No email activity yet for this lead.</p>
+            <p className="text-xs text-gray-400 mt-1">Send a campaign to start the conversation.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-xs text-gray-400">{conversation.messages_count} messages</p>
+            {conversation.messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`rounded-lg border p-3.5 ${
+                  msg.direction === "outgoing"
+                    ? "bg-blue-50 border-blue-100 ml-4"
+                    : msg.type === "auto_response"
+                    ? "bg-indigo-50 border-indigo-100 ml-4"
+                    : "bg-gray-50 border-gray-100 mr-4"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded
+                      ${ msg.direction === "outgoing" ? "bg-blue-200 text-blue-700" : "bg-gray-200 text-gray-600" }`}>
+                      {msg.type === "auto_response" ? "Auto Reply" : msg.direction === "outgoing" ? "Sent" : "Reply"}
+                    </span>
+                    {msg.intent && (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded font-medium">
+                        {msg.intent.replace("_", " ")}
+                      </span>
+                    )}
+                    {msg.opened_at && (
+                      <span className="flex items-center gap-0.5 text-[10px] text-green-600">
+                        <Eye size={9} /> Dibuka {msg.opened_count}x
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-gray-400 shrink-0">
+                    {msg.sent_at || msg.received_at
+                      ? new Date(msg.sent_at || msg.received_at).toLocaleString("id-ID")
+                      : "—"}
+                  </span>
+                </div>
+                <p className="text-xs font-medium text-gray-700 mb-1">{msg.subject || "(no subject)"}</p>
+                {(msg.body_text || msg.body) && (
+                  <p className="text-xs text-gray-600 line-clamp-3">
+                    {msg.body_text ||
+                      (msg.body
+                        ? msg.body.replace(/<[^>]+>/g, " ").trim().slice(0, 200)
+                        : "")}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>

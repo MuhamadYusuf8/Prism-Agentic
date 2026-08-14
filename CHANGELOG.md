@@ -79,3 +79,20 @@ Pada fase ini, kami mengubah chatbot dari sebuah asisten AI sederhana menjadi si
 - Tombol **Bersihkan** untuk memulai sesi percakapan baru dan menghapus riwayat.
 - Menu **AI Chatbot** ditambahkan ke navigasi *Sidebar* utama aplikasi.
 
+## Fase 4 — Pipeline Otomatis & Reply Monitor (Selesai)
+
+Pada fase ini, kami mengimplementasikan sistem otomasi penuh untuk monitoring balasan email, penanganan auto-response, dan penjadwalan follow-up secara periodik.
+
+### 1. Celery Beat Periodic Schedule (`celery_app.py`)
+- Menambahkan jadwal otomatis `periodic-follow-up-dispatch` yang berjalan setiap **6 jam** untuk memeriksa semua kampanye aktif dan mengirim follow-up kepada kandidat yang belum membalas.
+- Konfigurasi Celery yang lebih robust: `task_acks_late=True` dan `worker_prefetch_multiplier=1` untuk memastikan task tidak hilang jika worker mati di tengah proses.
+
+### 2. Celery Task Baru (`email_tasks.py`)
+- Menambahkan task `run_periodic_follow_ups` yang di-trigger oleh Celery Beat.
+- Task ini secara otomatis mengiterasi semua campaign aktif, memeriksa konfigurasi follow-up masing-masing, dan mendispatch follow-up emails melalui `email_service.send_follow_ups()`.
+
+### 3. Upgrade Monitoring Routes (`monitoring.py`)
+- Menambahkan **JWT authentication** ke semua endpoint monitoring yang sebelumnya tidak terlindungi.
+- **`POST /process-reply`**: Endpoint baru untuk memproses balasan email secara manual (untuk testing pipeline tanpa IMAP inbox), termasuk klasifikasi intent, update status lead, dan pengiriman auto-response.
+- **`GET /replies`**: Endpoint baru untuk melihat semua balasan di seluruh kampanye dengan filter berdasarkan *intent*, *sentiment*, dan status *auto-respond*.
+- **`POST /trigger-follow-ups`**: Endpoint baru untuk memicu follow-up secara manual — bisa untuk satu kampanye spesifik atau semua kampanye aktif sekaligus (tanpa harus menunggu jadwal Celery Beat).

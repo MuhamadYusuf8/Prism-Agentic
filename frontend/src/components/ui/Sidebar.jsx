@@ -9,12 +9,14 @@ import {
   Settings,
   LogOut,
   MessageSquare,
+  GitBranch,
 } from "lucide-react";
 import clsx from "clsx";
 import { useAuth } from "../../lib/auth-context";
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/pipeline", label: "Pipeline", icon: GitBranch },
   { href: "/linkedin", label: "LinkedIn Sourcing", icon: Linkedin },
   { href: "/leads", label: "All Leads", icon: Users },
   { href: "/analytics", label: "Analytics", icon: BarChart2 },
