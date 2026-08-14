@@ -1,0 +1,12 @@
+Syllabus
+1. Research Method
+2. Machine Learning
+3. Ubiquitous Computing
+4. Big Data Analysis
+5. Fundamental of Deep Learning
+
+6. Business Intelligence and Analytics
+7. Voice & Image Recognition
+8. Information Retrieval
+9. Digital Forensics & Advanced Cyber Security
+10. NLP & Conversational AI

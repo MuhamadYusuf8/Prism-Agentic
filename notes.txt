@@ -1,0 +1,75 @@
+######################################################### DB ############################################################################
+Open http://localhost:8080 and login:
+
+Field	    Value
+------------------------------
+System	    PostgreSQL
+Server	    postgres
+Username	recruitment
+Password	recruitment_pass
+Database	recruitment_db
+
+######################################################### DOCKER ############################################################################
+
+------------------- Start & Stop -------------------
+
+# Start everything (first time or after changes)
+docker compose up --build
+
+# Start in background (detached — no log spam)
+docker compose up -d --build
+
+# Stop everything (keeps data)
+docker compose down
+
+# Stop + wipe all data (fresh start)
+docker compose down -v
+
+------------------- Restart Services -------------------
+# Restart a specific service (after code change)
+docker compose restart backend
+docker compose restart frontend
+docker compose restart worker
+
+# Restart multiple at once
+docker compose restart backend worker beat
+
+
+------------------- Logs -------------------
+# All services live (follow mode)
+docker compose logs -f
+
+# One service only
+docker compose logs -f backend
+docker compose logs -f frontend
+
+# Last N lines
+docker compose logs --tail=50 backend
+
+
+------------------- Status & Debugging -------------------
+# See all container status + ports
+docker compose ps
+
+# Run a command inside a container
+docker compose exec backend bash
+docker compose exec postgres psql -U recruitment -d recruitment_db
+
+# Check resource usage
+docker stats
+
+------------------- Quick Workflow (most common) -------------------
+# After editing Python backend files → just restart backend
+docker compose restart backend
+
+# After editing next.config.ts or docker-compose.yml → restart frontend
+docker compose restart frontend
+
+# After editing requirements.txt → must rebuild
+docker compose up -d --build backend
+
+# After editing package.json → must rebuild
+docker compose up -d --build frontend
+
+# Nuclear option — full clean rebuild
+docker compose down -v && docker compose up --build

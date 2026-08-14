@@ -1,0 +1,30 @@
+data: {"type": "phase_1_start"}
+
+data: {"type": "start", "total_queries": 1, "max_profiles": 2}
+
+data: {"type": "query", "query": "site:linkedin.com/in \"software engineer\" Indonesia", "index": 1, "total": 1}
+
+data: {"type": "profile", "profile": {"name": "Aldi Fahrezi", "job_title": "Senior Software Engineer", "company": "Google", "location": "Indonesia", "area": null, "linkedin_url": "https://www.linkedin.com/in/aldifahrezi", "education_level": null, "education_institution": "University of Indonesia", "skills": [], "connections": null, "summary": "Aldi Fahrezi. Senior Software Engineer at Google. Google University of Indonesia. Seattle, Washington, United States.", "industry": "Computer Science / IT", "source": "linkedin"}, "saved": 1, "total_queries": 1}
+
+data: {"type": "profile", "profile": {"name": "\u200fGani Ilham Irsyadi\u200f", "job_title": "\u200fSoftware Engineer", "company": "ByteDance ...", "location": "Indonesia", "area": null, "linkedin_url": "https://www.linkedin.com/in/ganiirsyadi", "education_level": null, "education_institution": "University of Indonesia", "skills": ["React", "Node", "Vue", "Node.Js"], "connections": null, "summary": "Gani Ilham Irsyadi. Software Engineer @ ByteDance (TikTok) | Full-Stack & AI Systems | React, Next.js, Vue, Node.js. ByteDance University of Indonesia. \u062f\u0628\u064a ...", "industry": "Computer Science / IT", "source": "linkedin"}, "saved": 2, "total_queries": 1}
+
+data: {"type": "query_done", "new_profiles": 2, "total_so_far": 2}
+
+data: {"type": "done", "total_saved": 2}
+
+data: {"type": "saved", "inserted": 0, "updated": 2, "failed": 0, "duplicates": 2, "total": 2}
+
+data: {"type": "phase_1_done", "profiles_found": 2, "saved": 0, "inserted": 0, "updated": 2, "duplicates": 2, "failed": 0}
+
+data: {"type": "phase_2_start", "total_profiles": 2}
+
+data: {"type": "email_found", "name": "Aldi Fahrezi", "email": "aldi.fahrezi@gmail.com", "confidence": 70, "source": "serper", "progress": {"found": 1, "total": 2}}
+
+data: {"type": "email_found", "name": "\u200fGani Ilham Irsyadi\u200f", "email": "athorpj@yahoo.com", "confidence": 55, "source": "serper", "progress": {"found": 2, "total": 2}}
+
+data: {"type": "phase_2_done", "found": 2, "failed": 0, "total": 2}
+
+data: {"type": "syllabus_matched", "total": 107}
+
+data: {"type": "error", "message": "name 'saved' is not defined"}
+
