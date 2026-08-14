@@ -96,3 +96,8 @@ Pada fase ini, kami mengimplementasikan sistem otomasi penuh untuk monitoring ba
 - **`POST /process-reply`**: Endpoint baru untuk memproses balasan email secara manual (untuk testing pipeline tanpa IMAP inbox), termasuk klasifikasi intent, update status lead, dan pengiriman auto-response.
 - **`GET /replies`**: Endpoint baru untuk melihat semua balasan di seluruh kampanye dengan filter berdasarkan *intent*, *sentiment*, dan status *auto-respond*.
 - **`POST /trigger-follow-ups`**: Endpoint baru untuk memicu follow-up secara manual — bisa untuk satu kampanye spesifik atau semua kampanye aktif sekaligus (tanpa harus menunggu jadwal Celery Beat).
+
+### 4. UI Pipeline & Conversation Thread
+- **`LeadDetailPage.jsx`**: Menambahkan panel *Email Conversation Thread* di halaman detail kandidat untuk menampilkan riwayat lengkap email keluar dan balasan masuk secara kronologis.
+- **`PipelinePage.jsx`**: Membuat halaman visualisasi Kanban Board interaktif yang memetakan kandidat ke dalam 5 tahapan rekrutmen (*New Leads*, *Contacted*, *Interested*, *Applied*, *Enrolled*).
+- Menambahkan rute `/pipeline` di `App.jsx` dan menu navigasi **Pipeline** di sidebar.
