@@ -8,6 +8,7 @@ from app.core.database import engine, Base
 from app.api.routes import (
     leads, analytics, scraper, email, chatbot, documents, export,
     auth, campaigns, tracking, monitoring, settings as settings_routes,
+    users,
 )
 
 
@@ -64,6 +65,7 @@ app.include_router(chatbot.router, prefix="/api/chatbot", tags=["chatbot"])
 app.include_router(documents.router, prefix="/api/documents", tags=["documents"])
 app.include_router(export.router, prefix="/api/export", tags=["export"])
 app.include_router(settings_routes.router, prefix="/api", tags=["settings"])
+app.include_router(users.router, prefix="/api/users", tags=["users"])
 
 
 # ── Socket.IO-style WebSocket for real-time updates ──────────────────────────

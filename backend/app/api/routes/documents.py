@@ -89,7 +89,7 @@ async def _ensure_chunks_table(db: AsyncSession) -> None:
 async def upload_document(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_admin),
 ):
     """
     Upload a PDF or TXT document into the RAG knowledge base.

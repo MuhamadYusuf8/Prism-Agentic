@@ -86,17 +86,18 @@ async def get_current_user(
     return user
 
 
-async def require_admin(current_user: Annotated[User, Depends(get_current_user)]) -> User:
-    """Dependency: require admin role."""
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-    return current_user
+def require_role(allowed_roles: list[str]):
+    """Dependency factory untuk route yang butuh role tertentu."""
+    async def role_checker(current_user: User = Depends(get_current_user)):
+        if current_user.role not in allowed_roles:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Akses ditolak. Dibutuhkan role: {allowed_roles}"
+            )
+        return current_user
+    return role_checker
 
-
-async def require_recruiter_or_admin(
-    current_user: Annotated[User, Depends(get_current_user)],
-) -> User:
-    """Dependency: require recruiter or admin role."""
-    if current_user.role not in ("admin", "recruiter"):
-        raise HTTPException(status_code=403, detail="Recruiter or admin access required")
-    return current_user
+# Shortcuts
+require_admin = require_role(["admin"])
+require_user_or_admin = require_role(["admin", "user"])
+require_recruiter_or_admin = require_role(["admin", "recruiter"])

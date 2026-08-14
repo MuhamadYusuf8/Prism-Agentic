@@ -189,7 +189,7 @@ async def send_campaign_targeted(
     payload: SendTargetedRequest | None = None,
     background_tasks: BackgroundTasks = BackgroundTasks(),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(require_admin),
 ):
     """
     Dispatch campaign emails in the background via Celery.

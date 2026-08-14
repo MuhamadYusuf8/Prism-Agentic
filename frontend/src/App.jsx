@@ -16,6 +16,7 @@ import CampaignDetailPage from "./pages/CampaignDetailPage";
 import SettingsPage from "./pages/SettingsPage";
 import ChatbotPage from "./pages/ChatbotPage";
 import PipelinePage from "./pages/PipelinePage";
+import UserManagementPage from "./pages/UserManagementPage";
 
 function ProtectedLayout({ children }) {
   return (
@@ -193,6 +194,18 @@ export default function App() {
           isAuthenticated ? (
             <ProtectedLayout>
               <PipelinePage />
+            </ProtectedLayout>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path="/users"
+        element={
+          isAuthenticated ? (
+            <ProtectedLayout>
+              <UserManagementPage />
             </ProtectedLayout>
           ) : (
             <Navigate to="/login" replace />

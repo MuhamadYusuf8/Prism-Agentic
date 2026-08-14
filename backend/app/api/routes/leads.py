@@ -6,7 +6,7 @@ from sqlalchemy import select, func, or_
 from pydantic import BaseModel
 
 from app.core.database import get_db
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, require_admin
 from app.models.user import User
 from app.models.lead import Lead, LeadStatus, LeadSource
 from app.scrapers.alumni import parse_alumni_file, save_alumni_records
@@ -206,7 +206,11 @@ async def update_lead(lead_id: UUID, payload: LeadUpdate, db: AsyncSession = Dep
 
 
 @router.delete("/{lead_id}", status_code=204)
-async def delete_lead(lead_id: UUID, db: AsyncSession = Depends(get_db)):
+async def delete_lead(
+    lead_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
     """Delete a lead."""
     lead = await db.get(Lead, lead_id)
     if not lead:
@@ -252,6 +256,7 @@ async def profiling_statistics(db: AsyncSession = Depends(get_db)):
 async def run_clustering(
     lead_ids: list[UUID] | None = None,
     db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
 ):
     """Run clustering on leads (optionally filtered by IDs)."""
     result = await cluster_leads(db, lead_ids)

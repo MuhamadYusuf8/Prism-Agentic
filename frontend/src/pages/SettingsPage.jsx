@@ -10,7 +10,10 @@ import {
   RefreshCw,
   Eye,
   EyeOff,
+  Users,
 } from "lucide-react";
+import { Link } from "react-router-dom";
+
 
 /* ─── Section Component ─────────────────────────────────────── */
 
@@ -367,6 +370,21 @@ export default function SettingsPage() {
                 }
               />
             </div>
+          </div>
+        </SettingsSection>
+
+        {/* ── User Management ── */}
+        <SettingsSection title="User Management" icon={Users}>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-600">
+              Kelola pengguna PRISM, role (admin/recruiter/user), dan hak akses sistem.
+            </p>
+            <Link
+              to="/users"
+              className="px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
+            >
+              Kelola Pengguna
+            </Link>
           </div>
         </SettingsSection>
       </form>
