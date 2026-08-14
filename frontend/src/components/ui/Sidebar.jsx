@@ -18,8 +18,9 @@ const nav = [
   { href: "/linkedin", label: "LinkedIn Sourcing", icon: Linkedin },
   { href: "/leads", label: "All Leads", icon: Users },
   { href: "/analytics", label: "Analytics", icon: BarChart2 },
-  { href: "/email", label: "Email", icon: Mail },
+  { href: "/email", label: "Email Campaign", icon: Mail },
   { href: "/email-monitoring", label: "Email Monitoring", icon: MessageSquare },
+  { href: "/chatbot", label: "AI Chatbot", icon: Bot },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

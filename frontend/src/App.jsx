@@ -14,6 +14,7 @@ import EmailPage from "./pages/EmailPage";
 import EmailMonitoringPage from "./pages/EmailMonitoringPage";
 import CampaignDetailPage from "./pages/CampaignDetailPage";
 import SettingsPage from "./pages/SettingsPage";
+import ChatbotPage from "./pages/ChatbotPage";
 
 function ProtectedLayout({ children }) {
   return (
@@ -167,6 +168,18 @@ export default function App() {
           isAuthenticated ? (
             <ProtectedLayout>
               <SettingsPage />
+            </ProtectedLayout>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path="/chatbot"
+        element={
+          isAuthenticated ? (
+            <ProtectedLayout>
+              <ChatbotPage />
             </ProtectedLayout>
           ) : (
             <Navigate to="/login" replace />

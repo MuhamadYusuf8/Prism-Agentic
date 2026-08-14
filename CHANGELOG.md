@@ -49,3 +49,33 @@ Pada fase ini, kami mengimplementasikan sistem antrean latar belakang (backgroun
 - **Daftar Logs & Balasan**: Menampilkan status interaksi menggunakan badge warna-warni yang memudahkan pembacaan, di mana detail setiap aktivitas terlihat secara visual.
 - **Tombol "Kirim Campaign" Fungsional**: Terhubung ke endpoint Celery sehingga tombol memberikan *loading state* tanpa membekukan keseluruhan aplikasi.
 - **HTML Preview**: Memungkinkan pengelola melihat secara visual bagaimana desain email akan muncul di kotak masuk penerima.
+
+## Fase 3 — RAG Chatbot Assistant (Selesai)
+
+Pada fase ini, kami mengubah chatbot dari sebuah asisten AI sederhana menjadi sistem berpengetahuan (RAG) yang memiliki memori percakapan dan dapat belajar dari dokumen yang diunggah.
+
+### 1. Conversation History per Session (`chatbot.py`)
+- Mengimplementasikan penyimpanan riwayat percakapan berbasis *in-memory* (per `session_id`) menggunakan `deque` dengan batas 20 pesan.
+- Claude AI sekarang menerima seluruh riwayat percakapan sehingga bisa memberikan jawaban yang kontekstual dan koheren di setiap sesi.
+
+### 2. RAG Multi-Keyword & Knowledge Base (`documents.py`)
+- Mengubah pencarian RAG dari *single-keyword* menjadi *multi-keyword* sehingga lebih banyak dokumen relevan yang ditemukan.
+- Mengimplementasikan endpoint `POST /api/documents/upload` yang benar-benar berfungsi: bisa menerima file PDF/TXT, memecahnya menjadi *chunks*, dan menyimpannya ke database.
+- Menambahkan endpoint `POST /api/documents/seed` untuk memasukkan data bawaan kampus (Silabus S2 Ilmu Komputer & Profil President University) ke *knowledge base* chatbot secara instan.
+- Melakukan *seeding* knowledge base sehingga chatbot langsung aktif dengan RAG konteks kampus yang relevan.
+
+### 3. Endpoint Baru Chatbot (`chatbot.py`)
+- `GET /chatbot/history/{session_id}` — Mengambil riwayat percakapan suatu sesi.
+- `DELETE /chatbot/history/{session_id}` — Menghapus riwayat percakapan (mulai ulang sesi).
+- `GET /chatbot/sessions` — Melihat semua sesi aktif (khusus admin).
+
+### 4. UI Chatbot Premium (`ChatbotPage.jsx`)
+- Tampilan *chat bubble* modern dengan avatar berbeda untuk pengguna dan AI.
+- *Streaming* respons AI secara *real-time* (karakter per karakter muncul secara bertahap).
+- *Typing indicator* animasi *bounce* saat AI sedang memproses.
+- *Quick reply chips* untuk pertanyaan yang paling umum ditanyakan.
+- *Markdown rendering*: respons AI yang mengandung **tebal**, *miring*, atau daftar akan tampil dengan format yang tepat.
+- Panel **Knowledge Base** terintegrasi untuk upload dokumen baru atau seeding data kampus langsung dari UI.
+- Tombol **Bersihkan** untuk memulai sesi percakapan baru dan menghapus riwayat.
+- Menu **AI Chatbot** ditambahkan ke navigasi *Sidebar* utama aplikasi.
+
