@@ -101,3 +101,55 @@ Pada fase ini, kami mengimplementasikan sistem otomasi penuh untuk monitoring ba
 - **`LeadDetailPage.jsx`**: Menambahkan panel *Email Conversation Thread* di halaman detail kandidat untuk menampilkan riwayat lengkap email keluar dan balasan masuk secara kronologis.
 - **`PipelinePage.jsx`**: Membuat halaman visualisasi Kanban Board interaktif yang memetakan kandidat ke dalam 5 tahapan rekrutmen (*New Leads*, *Contacted*, *Interested*, *Applied*, *Enrolled*).
 - Menambahkan rute `/pipeline` di `App.jsx` dan menu navigasi **Pipeline** di sidebar.
+
+## Fase 5 — RBAC & Manajemen Pengguna (Selesai)
+
+Pada fase ini, kami mengimplementasikan sistem **Role-Based Access Control (RBAC)** secara penuh — dari lapisan *backend* hingga antarmuka admin — untuk memastikan setiap pengguna hanya dapat mengakses fitur yang sesuai dengan perannya.
+
+### 1. Dependency Factory `require_role()` (`auth.py`)
+- Mengubah arsitektur guard dari fungsi sederhana menjadi **dependency factory** yang fleksibel: `require_role(allowed_roles: list[str])`.
+- Mendefinisikan 3 shortcut siap pakai: `require_admin`, `require_user_or_admin`, dan `require_recruiter_or_admin` agar mudah digunakan di seluruh router.
+- Standarisasi 3 peran sistem: **`admin`** (akses penuh), **`recruiter`** (akses operasional), **`viewer`** (read-only).
+
+### 2. Proteksi Endpoint Sensitif
+Mengunci endpoint krusial yang sebelumnya bisa diakses siapa saja dengan `require_admin`:
+- **Leads**: `DELETE /{id}` (hapus lead), `POST /cluster` (jalankan clustering AI)
+- **Campaigns**: `DELETE /{id}` (hapus campaign), `POST /{id}/send` (kirim email massal)
+- **Documents**: `POST /upload` (tambah dokumen ke knowledge base)
+- **Settings**: Seluruh rute `GET`/`PUT` kini dilindungi di level router (`router = APIRouter(dependencies=[Depends(require_admin)])`)
+
+### 3. Model Audit Log (`audit_log.py`) [BARU]
+- Membuat tabel `audit_logs` di database untuk merekam jejak aktivitas sensitif.
+- Setiap entri mencatat: `user_id` (pelaku), `action`, `resource_type`, `resource_id`, `details` (data sebelum/sesudah), `ip_address`, dan `created_at`.
+- Audit log otomatis dicatat pada aksi: buat pengguna, hapus pengguna, ganti role, ganti password.
+
+### 4. Endpoint Manajemen Pengguna (`users.py`) [BARU]
+Endpoint CRUD lengkap di `/api/users` khusus untuk admin:
+- **`GET /`** — List semua pengguna dengan **pagination** server-side.
+- **`POST /`** — Buat pengguna baru dengan validasi kekuatan password (min. 8 karakter via Pydantic validator).
+- **`PATCH /{user_id}`** — Update role atau status aktif (dengan proteksi agar admin tidak bisa menonaktifkan akunnya sendiri).
+- **`DELETE /{user_id}`** — Hapus pengguna permanen (dengan proteksi agar admin tidak bisa menghapus akunnya sendiri).
+- **`GET /me`** — Profil pengguna yang sedang login.
+- **`PATCH /me/password`** — Ganti password sendiri.
+- **`GET /audit-logs`** — Rekam jejak aktivitas sistem dengan pagination (admin only).
+
+### 5. UI Manajemen Pengguna (`UserManagementPage.jsx`) [BARU]
+Halaman administrasi pengguna yang komprehensif dengan 2 tab:
+- **Tab "Daftar Pengguna"**: Tabel dengan avatar inisial, badge role berwarna, tombol toggle status aktif/nonaktif, dropdown ganti role *inline*, indikator "Saya" untuk akun sendiri, dan kolom *Last Login*.
+- **Tab "Audit Log"**: Tabel rekam jejak aktivitas dengan kode aksi berwarna (`create`, `update`, `delete`), nama & email pelaku, IP address, dan timestamp.
+- **Role Guard**: Halaman otomatis meng-*redirect* pengguna non-admin ke dashboard agar tidak bisa diakses langsung via URL.
+- **Pagination**: Navigasi antar halaman untuk kedua tab.
+
+### 6. Pembaruan Sidebar & Navigasi (`Sidebar.jsx`)
+- Menambahkan seksi **"Admin"** tersembunyi di Sidebar yang hanya muncul jika pengguna yang login memiliki role `admin`.
+- Menu **"User Management"** (ikon Shield ungu) hanya terlihat oleh admin.
+- Badge role pengguna (`Admin` / `Recruiter` / `Viewer`) ditampilkan di panel profil bawah sidebar.
+
+### 7. Perbaikan Bug Kritis (Audit Internal)
+Setelah audit menyeluruh, 6 bug kritis ditemukan dan diperbaiki sebelum merge:
+- ✅ **Field mismatch**: `hashed_password` → `password_hash` (sesuai model SQLAlchemy)
+- ✅ **Field mismatch**: `last_login` → `last_login_at` (sesuai model SQLAlchemy)
+- ✅ **Route conflict**: Memindahkan `/me` sebelum `/{user_id}` agar FastAPI tidak salah routing
+- ✅ **AuditLog tidak dibuat**: Menambahkan import eksplisit di `main.py` agar `Base.metadata.create_all` mendaftarkan tabel `audit_logs`
+- ✅ **Duplikasi endpoint**: Menghapus `GET /auth/users` yang duplikat dari `auth.py`
+- ✅ **Role tidak konsisten**: Standarisasi ke `viewer/recruiter/admin` di seluruh kodebase
