@@ -6,7 +6,7 @@ Full CRUD for campaigns, plus activate/pause/sendTest/sendFollowUps/monitoring.
 
 from uuid import UUID
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from pydantic import BaseModel
@@ -17,6 +17,7 @@ from app.models.user import User
 from app.models.campaign import Campaign
 from app.models.email_log import EmailLog
 from app.models.lead import Lead
+from app.models.reply import Reply
 
 router = APIRouter()
 
@@ -88,7 +89,11 @@ async def create_campaign(
 
 
 @router.get("/{campaign_id}")
-async def get_campaign(campaign_id: UUID, db: AsyncSession = Depends(get_db)):
+async def get_campaign(
+    campaign_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
     """Get a single campaign by ID."""
     campaign = await db.get(Campaign, campaign_id)
     if not campaign:
@@ -98,7 +103,10 @@ async def get_campaign(campaign_id: UUID, db: AsyncSession = Depends(get_db)):
 
 @router.patch("/{campaign_id}")
 async def update_campaign(
-    campaign_id: UUID, payload: CampaignUpdate, db: AsyncSession = Depends(get_db)
+    campaign_id: UUID,
+    payload: CampaignUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
 ):
     """Update a campaign."""
     campaign = await db.get(Campaign, campaign_id)
@@ -113,8 +121,12 @@ async def update_campaign(
 
 
 @router.delete("/{campaign_id}", status_code=204)
-async def delete_campaign(campaign_id: UUID, db: AsyncSession = Depends(get_db)):
-    """Delete a campaign."""
+async def delete_campaign(
+    campaign_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Delete a campaign (admin only)."""
     campaign = await db.get(Campaign, campaign_id)
     if not campaign:
         raise HTTPException(404, "Campaign not found")
@@ -126,7 +138,11 @@ async def delete_campaign(campaign_id: UUID, db: AsyncSession = Depends(get_db))
 
 
 @router.post("/{campaign_id}/activate")
-async def activate_campaign(campaign_id: UUID, db: AsyncSession = Depends(get_db)):
+async def activate_campaign(
+    campaign_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
     """Activate a campaign (changes status to active)."""
     campaign = await db.get(Campaign, campaign_id)
     if not campaign:
@@ -142,7 +158,11 @@ async def activate_campaign(campaign_id: UUID, db: AsyncSession = Depends(get_db
 
 
 @router.post("/{campaign_id}/pause")
-async def pause_campaign(campaign_id: UUID, db: AsyncSession = Depends(get_db)):
+async def pause_campaign(
+    campaign_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
     """Pause an active campaign."""
     campaign = await db.get(Campaign, campaign_id)
     if not campaign:
@@ -154,6 +174,59 @@ async def pause_campaign(campaign_id: UUID, db: AsyncSession = Depends(get_db)):
     await db.commit()
     await db.refresh(campaign)
     return campaign
+
+
+# ── Targeted Campaign Send (via Celery) ───────────────────────────────────────
+
+
+class SendTargetedRequest(BaseModel):
+    lead_ids: list[str] | None = None  # None = send to all leads
+
+
+@router.post("/{campaign_id}/send")
+async def send_campaign_targeted(
+    campaign_id: UUID,
+    payload: SendTargetedRequest | None = None,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """
+    Dispatch campaign emails in the background via Celery.
+
+    - If lead_ids is provided, send only to those specific leads.
+    - If lead_ids is omitted/null, send to all targeted leads.
+
+    Returns immediately with a task_id for progress tracking.
+    """
+    campaign = await db.get(Campaign, campaign_id)
+    if not campaign:
+        raise HTTPException(404, "Campaign not found")
+
+    template = campaign.email_template or {}
+    if not template.get("body"):
+        raise HTTPException(400, "Campaign has no email body template. Please set up an email template first.")
+
+    from app.workers.email_tasks import send_bulk_outreach, dispatch_campaign
+
+    if payload and payload.lead_ids:
+        # Targeted send to specific leads
+        task = send_bulk_outreach.delay(str(campaign_id), payload.lead_ids)
+        return {
+            "status": "queued",
+            "task_id": task.id,
+            "message": f"Dispatching emails to {len(payload.lead_ids)} selected lead(s) in background.",
+            "campaign_id": str(campaign_id),
+        }
+    else:
+        # Broadcast to all targeted leads
+        task = dispatch_campaign.delay(str(campaign_id))
+        return {
+            "status": "queued",
+            "task_id": task.id,
+            "message": "Dispatching campaign emails to all targeted leads in background.",
+            "campaign_id": str(campaign_id),
+        }
 
 
 @router.post("/{campaign_id}/send-test")
@@ -319,56 +392,190 @@ async def send_campaign_to_all(campaign_id: UUID, db: AsyncSession = Depends(get
 
 
 @router.get("/{campaign_id}/stats")
-async def get_campaign_stats(campaign_id: UUID, db: AsyncSession = Depends(get_db)):
-    """Get detailed stats for a campaign."""
+async def get_campaign_stats(
+    campaign_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """Get detailed real-time stats for a campaign."""
     campaign = await db.get(Campaign, campaign_id)
     if not campaign:
         raise HTTPException(404, "Campaign not found")
 
-    # Count email logs for this campaign
     total_sent = await db.scalar(
         select(func.count(EmailLog.id)).where(
             EmailLog.campaign_id == campaign_id,
-            EmailLog.status == "sent",
+            EmailLog.status.in_(["sent", "replied"]),
         )
-    )
+    ) or 0
     total_opened = await db.scalar(
         select(func.count(EmailLog.id)).where(
             EmailLog.campaign_id == campaign_id,
             EmailLog.opened_at.isnot(None),
         )
-    )
+    ) or 0
     total_clicked = await db.scalar(
         select(func.count(EmailLog.id)).where(
             EmailLog.campaign_id == campaign_id,
             EmailLog.clicked_at.isnot(None),
         )
-    )
+    ) or 0
     total_replied = await db.scalar(
         select(func.count(EmailLog.id)).where(
             EmailLog.campaign_id == campaign_id,
             EmailLog.replied_at.isnot(None),
         )
-    )
+    ) or 0
     total_bounced = await db.scalar(
         select(func.count(EmailLog.id)).where(
             EmailLog.campaign_id == campaign_id,
             EmailLog.status == "bounced",
         )
-    )
+    ) or 0
+    total_follow_ups = await db.scalar(
+        select(func.count(EmailLog.id)).where(
+            EmailLog.campaign_id == campaign_id,
+            EmailLog.is_follow_up == True,
+        )
+    ) or 0
 
     return {
         "campaign_id": str(campaign_id),
         "campaign_name": campaign.name,
         "status": campaign.status,
         "stats": {
-            "total_sent": total_sent or 0,
-            "total_opened": total_opened or 0,
-            "total_clicked": total_clicked or 0,
-            "total_replied": total_replied or 0,
-            "total_bounced": total_bounced or 0,
-            "open_rate": round((total_opened or 0) / max(total_sent or 1, 1) * 100, 2),
-            "click_rate": round((total_clicked or 0) / max(total_sent or 1, 1) * 100, 2),
-            "reply_rate": round((total_replied or 0) / max(total_sent or 1, 1) * 100, 2),
+            "total_sent": total_sent,
+            "total_opened": total_opened,
+            "total_clicked": total_clicked,
+            "total_replied": total_replied,
+            "total_bounced": total_bounced,
+            "total_follow_ups": total_follow_ups,
+            "open_rate": round(total_opened / max(total_sent, 1) * 100, 1),
+            "click_rate": round(total_clicked / max(total_sent, 1) * 100, 1),
+            "reply_rate": round(total_replied / max(total_sent, 1) * 100, 1),
         },
     }
+
+
+# ── Email Logs per Campaign ───────────────────────────────────────────────────
+
+
+@router.get("/{campaign_id}/logs")
+async def get_campaign_logs(
+    campaign_id: UUID,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    status: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """
+    Paginated email logs for a campaign.
+    Includes open/click/reply tracking timestamps per email.
+    """
+    campaign = await db.get(Campaign, campaign_id)
+    if not campaign:
+        raise HTTPException(404, "Campaign not found")
+
+    query = select(EmailLog).where(EmailLog.campaign_id == campaign_id)
+    if status:
+        query = query.where(EmailLog.status == status)
+
+    total = await db.scalar(
+        select(func.count()).select_from(
+            select(EmailLog).where(EmailLog.campaign_id == campaign_id).subquery()
+        )
+    ) or 0
+
+    result = await db.execute(
+        query.order_by(EmailLog.sent_at.desc().nulls_last(), EmailLog.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    logs = result.scalars().all()
+
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "campaign_id": str(campaign_id),
+        "data": [
+            {
+                "id": str(log.id),
+                "recipient_email": log.recipient_email,
+                "recipient_name": log.recipient_name,
+                "subject": log.subject,
+                "status": log.status,
+                "is_follow_up": log.is_follow_up,
+                "follow_up_number": log.follow_up_number,
+                "sent_at": log.sent_at.isoformat() if log.sent_at else None,
+                "opened_at": log.opened_at.isoformat() if log.opened_at else None,
+                "opened_count": log.opened_count,
+                "clicked_at": log.clicked_at.isoformat() if log.clicked_at else None,
+                "clicked_count": log.clicked_count,
+                "replied_at": log.replied_at.isoformat() if log.replied_at else None,
+                "tracking_id": log.tracking_id,
+            }
+            for log in logs
+        ],
+    }
+
+
+# ── Replies per Campaign ──────────────────────────────────────────────────────
+
+
+@router.get("/{campaign_id}/replies")
+async def get_campaign_replies(
+    campaign_id: UUID,
+    intent: str | None = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """
+    Paginated replies for a campaign.
+    Can be filtered by intent (interested, not_interested, request_info, etc.)
+    """
+    campaign = await db.get(Campaign, campaign_id)
+    if not campaign:
+        raise HTTPException(404, "Campaign not found")
+
+    query = select(Reply).where(Reply.campaign_id == campaign_id)
+    if intent:
+        query = query.where(Reply.intent == intent)
+
+    total = await db.scalar(
+        select(func.count()).select_from(
+            select(Reply).where(Reply.campaign_id == campaign_id).subquery()
+        )
+    ) or 0
+
+    result = await db.execute(
+        query.order_by(Reply.received_at.desc().nulls_last())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    replies = result.scalars().all()
+
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "campaign_id": str(campaign_id),
+        "data": [
+            {
+                "id": str(reply.id),
+                "from_email": reply.from_email,
+                "subject": reply.subject,
+                "body_text": reply.body_text,
+                "intent": reply.intent,
+                "sentiment": reply.sentiment,
+                "confidence": reply.confidence,
+                "auto_response_sent": reply.auto_response_sent,
+                "received_at": reply.received_at.isoformat() if reply.received_at else None,
+            }
+            for reply in replies
+        ],
+    }
+

@@ -29,3 +29,23 @@ Pada fase ini, kami merombak aplikasi agar secara resmi menggunakan identitas **
 ### 5. Pembaruan Simulasi Data / Database Seeding (`seed_data.py`)
 - Memperbarui skrip `seed_data.py` untuk menyuntikkan data *dummy* berupa **60 kandidat (leads)** dan **6 template kampanye** yang isinya sudah disesuaikan persis untuk penawaran program Pascasarjana President University.
 - Mereset total database dan menjalankan ulang *seeding* agar tampilan visual dasbor UI terisi penuh dengan grafik interaksi (email dibuka, diklik, dibalas, dll.) secara realistis.
+
+## Fase 2 — Email Campaign (Selesai)
+
+Pada fase ini, kami mengimplementasikan sistem antrean latar belakang (background queue) untuk pengiriman email agar prosesnya tidak membuat aplikasi membeku (freeze), serta merombak halaman antarmuka agar bisa menampilkan metrik email secara *real-time*.
+
+### 1. Implementasi Pekerja Latar Belakang Celery (`email_tasks.py`)
+- Menerapkan arsitektur _Asynchronous Task Queue_ menggunakan Celery untuk memproses pengiriman email massal di luar siklus HTTP request/response.
+- Mengimplementasikan 3 task utama: `dispatch_campaign` (broadcast massal), `send_bulk_outreach` (pengiriman ke beberapa kandidat terpilih), dan `dispatch_follow_ups` (email otomatis jika tidak ada balasan).
+
+### 2. Penambahan Endpoint API Real-Time (`campaigns.py`)
+- **`/send`**: Menjadi trigger utama untuk mengirim kampanye yang langsung dialihkan ke _Celery Worker_.
+- **`/logs`**: Menyediakan data riwayat pengiriman per email secara detail dan terpaginasi (status, jumlah *open*, *click*, waktu dikirim).
+- **`/replies`**: Menarik data seluruh balasan dari kandidat, lengkap dengan analisis *Intent* (contoh: *Interested*, *Request Info*) dan sentimen.
+
+### 3. Perombakan Total UI CampaignDetailPage (`CampaignDetailPage.jsx`)
+- Mengubah struktur halaman menjadi navigasi berbasis *Tab* modern (Overview, Email Logs, Replies, Template Preview).
+- **Statistik Dinamis**: Menampilkan persentase metrik performa (*Open rate, Click rate, Reply rate*) langsung dari pembacaan database log.
+- **Daftar Logs & Balasan**: Menampilkan status interaksi menggunakan badge warna-warni yang memudahkan pembacaan, di mana detail setiap aktivitas terlihat secara visual.
+- **Tombol "Kirim Campaign" Fungsional**: Terhubung ke endpoint Celery sehingga tombol memberikan *loading state* tanpa membekukan keseluruhan aplikasi.
+- **HTML Preview**: Memungkinkan pengelola melihat secara visual bagaimana desain email akan muncul di kotak masuk penerima.
