@@ -213,3 +213,44 @@ async def top_prospects(
             for l in leads
         ]
     }
+
+
+@router.get("/email-performance")
+async def email_performance(db: AsyncSession = Depends(get_db)):
+    """Per-campaign email performance: open rate, click rate, reply rate."""
+    campaigns_result = await db.execute(
+        select(Campaign.id, Campaign.name, Campaign.status)
+        .order_by(Campaign.created_at.desc())
+        .limit(20)
+    )
+    campaigns = campaigns_result.all()
+
+    data = []
+    for campaign in campaigns:
+        sent = await db.scalar(
+            select(func.count(EmailLog.id))
+            .where(EmailLog.campaign_id == campaign.id)
+            .where(EmailLog.status == "sent")
+        ) or 0
+        opened = await db.scalar(
+            select(func.count(EmailLog.id))
+            .where(EmailLog.campaign_id == campaign.id)
+            .where(EmailLog.opened_at.isnot(None))
+        ) or 0
+        replied = await db.scalar(
+            select(func.count(Reply.id))
+            .where(Reply.campaign_id == campaign.id)
+        ) or 0
+
+        data.append({
+            "campaign_id": str(campaign.id),
+            "campaign_name": campaign.name,
+            "status": campaign.status,
+            "sent": sent,
+            "opened": opened,
+            "replied": replied,
+            "open_rate": round(opened / max(sent, 1) * 100, 1),
+            "reply_rate": round(replied / max(sent, 1) * 100, 1),
+        })
+
+    return {"data": data}
